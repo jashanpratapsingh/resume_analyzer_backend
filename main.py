@@ -13,13 +13,27 @@ load_dotenv()
 
 app = FastAPI()
 
-# Get allowed origins from environment variable or use default
-ALLOWED_ORIGINS = os.getenv(
-    "ALLOWED_ORIGINS",
-    "http://localhost:5173,https://ai-resume-analyzer.vercel.app,https://ai-resume-analyzer-claude.onrender.com"
-).split(",")
+# Get environment
+ENVIRONMENT = os.getenv('ENVIRONMENT', 'development')
 
-# Configure CORS
+# Configure CORS based on environment
+if ENVIRONMENT == 'development':
+    # Development settings
+    ALLOWED_ORIGINS = [
+        "http://localhost:5173",
+        "http://localhost:3000",
+    ]
+else:
+    # Production settings - allow Vercel domains and your custom domain if any
+    ALLOWED_ORIGINS = [
+        "https://ai-resume-analyzer.vercel.app",
+        "https://ai-resume-analyzer-claude.vercel.app",
+        "https://ai-resume-analyzer-git-main-jashansingh303.vercel.app",
+        "https://ai-resume-analyzer-jashansingh303.vercel.app",
+        # Add any other production domains here
+    ]
+
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -33,11 +47,12 @@ analyzer = ResumeAnalyzer()
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy"}
+    return {"status": "healthy", "environment": ENVIRONMENT}
 
 @app.post("/analyze")
 async def analyze_resume(file: UploadFile = File(...)):
     logger.info(f"Received file: {file.filename}")
+    logger.info(f"Current environment: {ENVIRONMENT}")
     
     if not file:
         logger.error("No file received")
@@ -53,7 +68,7 @@ async def analyze_resume(file: UploadFile = File(...)):
 
     try:
         # Create a temporary directory if it doesn't exist
-        temp_dir = os.getenv('TEMP_DIR', 'temp')
+        temp_dir = os.getenv('TEMP_DIR', '/tmp' if ENVIRONMENT == 'production' else 'temp')
         os.makedirs(temp_dir, exist_ok=True)
         temp_path = os.path.join(temp_dir, f"temp_{file.filename}")
         
