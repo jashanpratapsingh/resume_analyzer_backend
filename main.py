@@ -13,10 +13,16 @@ load_dotenv()
 
 app = FastAPI()
 
+# Get allowed origins from environment variable or use default
+ALLOWED_ORIGINS = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:5173,https://ai-resume-analyzer.vercel.app,https://ai-resume-analyzer-claude.onrender.com"
+).split(",")
+
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # React dev server
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -24,6 +30,10 @@ app.add_middleware(
 
 # Initialize the resume analyzer
 analyzer = ResumeAnalyzer()
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
 
 @app.post("/analyze")
 async def analyze_resume(file: UploadFile = File(...)):
@@ -43,8 +53,9 @@ async def analyze_resume(file: UploadFile = File(...)):
 
     try:
         # Create a temporary directory if it doesn't exist
-        os.makedirs('temp', exist_ok=True)
-        temp_path = os.path.join('temp', f"temp_{file.filename}")
+        temp_dir = os.getenv('TEMP_DIR', 'temp')
+        os.makedirs(temp_dir, exist_ok=True)
+        temp_path = os.path.join(temp_dir, f"temp_{file.filename}")
         
         # Save the uploaded file temporarily
         try:
@@ -76,4 +87,5 @@ async def analyze_resume(file: UploadFile = File(...)):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port) 
